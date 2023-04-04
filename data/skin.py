@@ -1,10 +1,8 @@
 from maya.api import OpenMaya, OpenMayaAnim
 from maya import cmds
 
-from ..core import get_node, undo
-from .base import BaseData
-
-from future.utils import iteritems
+from . import BaseData
+from ..lib import get_node
 
 
 def get(name):
@@ -13,38 +11,47 @@ def get(name):
 
     mfn_skin = get_node.skin_cluster(name)
     mfn_skin = OpenMayaAnim.MFnSkinCluster(mfn_skin)
-    data['name'] = mfn_skin.name()
-    
-    for obj in mfn_skin.influenceObjects():
-        data['influences'][int(mfn_skin.indexForInfluenceObject(obj))] = obj.partialPathName()
-        
-    weight_list_plug = mfn_skin.findPlug("weightList", 0)
-    weight_plug = mfn_skin.findPlug("weights", 0)
-    weight_list_attr = weight_list_plug.attribute()
-    for vId in range(weight_list_plug.numElements()):
-        vWeights = {}
-        weight_plug.selectAncestorLogicalIndex(vId, weight_list_attr)
-        influence_ids = weight_plug.getExistingArrayAttributeIndices()
-        inf_plug = OpenMaya.MPlug(weight_plug)
-        for inf_id in influence_ids:
-            inf_plug.selectAncestorLogicalIndex(inf_id)
-            try:
-                vWeights[inf_id] = inf_plug.asDouble()
-            except KeyError:
-                pass
-        data['weights'][vId] = vWeights
+
+    mesh_path = mfn_skin.getPathAtIndex(0)
+    mesh_node = mesh_path.node()
+
+    vertex_mfn = OpenMaya.MItMeshVertex(mesh_node)
+    indices = range(vertex_mfn.count())
+
+    id_component = OpenMaya.MFnSingleIndexedComponent()
+    vtx_component = id_component.create(OpenMaya.MFn.kMeshVertComponent)
+    id_component.addElements(indices)
+
+    influence_objects = mfn_skin.influenceObjects()
+    influences = [x.partialPathName() for x in influence_objects]
+
+    wts, num_inf = mfn_skin.getWeights(mesh_path, vtx_component)
+    data['weights'] = list(wts)
+    data['influences'] = influences
+    data['max_influence'] = mfn_skin.findPlug('maxInfluences', False).asInt()
+
     return data
 
 
-def _reset_skin_weights(data):
-    shape = cmds.listConnections("{}.outputGeometry".format(data['name']))[0]
-    for inf in data['influences'].values():
-        cmds.setAttr("{0}.lockInfluenceWeights".format(inf))
-    skin_norm = cmds.getAttr("{0}.normalizeWeights".format(data['name']))
-    if skin_norm != 0:
-        cmds.setAttr("{0}.normalizeWeights".format(data['name']), 0)
-    cmds.skinPercent(data['name'], shape, normalize=False, pruneWeights=100)
-    cmds.setAttr("{0}.normalizeWeights".format(data['name']), skin_norm)
+def set_weights(skin_cluster, weights):
+    skin_mfn = OpenMayaAnim.MFnSkinCluster(skin_cluster)
+
+    mesh_path = skin_mfn.getPathAtIndex(0)
+    mesh_node = mesh_path.node()
+
+    vertex_mfn = OpenMaya.MItMeshVertex(mesh_node)
+    indices = range(vertex_mfn.count())
+
+    id_component = OpenMaya.MFnSingleIndexedComponent()
+    vtx_component = id_component.create(OpenMaya.MFn.kMeshVertComponent)
+    id_component.addElements(indices)
+
+    influence_objects = skin_mfn.influenceObjects()
+    influence_index = OpenMaya.MIntArray(len(influence_objects), 0)
+    for x in range(len(influence_objects)):
+        influence_index[x] = int(skin_mfn.indexForInfluenceObject(influence_objects[x]))
+
+    skin_mfn.setWeights(mesh_path, vtx_component, influence_index, OpenMaya.MDoubleArray(weights))
 
 
 def load(data=None, name=None):
@@ -54,48 +61,22 @@ def load(data=None, name=None):
 
     if name:
         data['geometry'] = name
+    skin_mfn = get_node.skin_cluster(data['geometry'])
+    if skin_mfn:
+        cmds.skinCluster(data['geometry'], edit=1, unbind=1, unbindKeepHistory=0)
 
-    skin_cluster = get_node.skin_cluster(data['geometry'])
-    if skin_cluster:
-        cmds.skinCluster(OpenMaya.MFnDependencyNode(skin_cluster).name(), edit=True, unbind=True, unbindKeepHistory=False)
-
-    data['name'] = cmds.skinCluster(list(data['influences'].values()), data['geometry'],
-                                    bindMethod=1, skinMethod=2, tsb=True)[0]
-
-    with undo.UndoContext():
-        _reset_skin_weights(data)
-        for vId, weight in iteritems(data['weights']):
-            weight_attr = '{}.weightList[{}]'.format(data['name'], vId)
-            for inf_id, inf_value in iteritems(weight):
-                attr = '.weights[{}]'.format(inf_id)
-                full_attr = weight_attr + attr
-                cmds.setAttr(full_attr, cmds.getAttr(full_attr) + inf_value)
+    set_weights(OpenMaya.MGlobal.getSelectionListByName(cmds.skinCluster(*(data['influences'] + [data['geometry']]),
+                                                                         toSelectedBones=True,
+                                                                         mi=data['max_influence'],
+                                                                         bindMethod=3)[0]).getDependNode(0),
+                data['weights'])
     return data
 
 
 class SkinData(BaseData):
     def __init__(self):
         super(SkinData, self).__init__()
-        self['name'] = str()
         self['geometry'] = str()
-        self['weights'] = dict()
+        self['weights'] = list()
         self['influences'] = dict()
-
-    # def reset_skin_weights(self):
-    #     for inf in self['influences'].values():
-    #         influence = OpenMaya.MSelectionList().add(inf).getDependNode(0)
-    #         OpenMaya.MFnTransform(influence).findPlug('lockInfluenceWeights', False).setBool(True)
-    #
-    #     skin_cluster = OpenMaya.MSelectionList().add(self['name']).getDependNode(0)
-    #     skin_cluster = OpenMaya.MFnDependencyNode(skin_cluster)
-    #
-    #     shape = OpenMaya.MSelectionList().add(self['geometry']).getDagPath(0)
-    #     shape = shape.extendToShape().node()
-    #
-    #     plug = skin_cluster.findPlug('normalizeWeights', False)
-    #     value = plug.asDouble()
-    #     if value != 0.0:
-    #         plug.setDouble(0.0)
-    #
-    #     cmds.skinPercent(skin_cluster.name(), OpenMaya.MFnDependencyNode(shape).name(), normalize=False, pruneWeights=100)
-    #     plug.setDouble(value)
+        self['max_influence'] = int()

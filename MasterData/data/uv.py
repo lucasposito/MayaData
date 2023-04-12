@@ -1,4 +1,5 @@
-from .base import BaseData
+from MasterData.data.base import BaseData
+
 from maya.api import OpenMaya
 from maya import cmds
 

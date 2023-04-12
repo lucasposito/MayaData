@@ -1,12 +1,13 @@
-from .base import BaseData
-from . import geometry, uv
-from .. import lib
+from MasterData.lib import get_node, pivot
+from MasterData.data import geometry, uv
+from MasterData.data.base import BaseData
+
 from maya.api import OpenMaya
 from maya import cmds
 
 
 def get(name):
-    blend_node = lib.get_node.blend_shape(name)
+    blend_node = get_node.blend_shape(name)
     if not blend_node:
         return
     mesh = OpenMaya.MSelectionList().add(name).getDagPath(0)
@@ -40,7 +41,7 @@ def load(data=None, name=None, same_topology=True, meshes_overlapped=True, clamp
     if name:
         data['geometry']['name'] = name
 
-    blend_node = lib.get_node.blend_shape(data['geometry']['name'])
+    blend_node = get_node.blend_shape(data['geometry']['name'])
 
     if same_topology:
         if not blend_node:
@@ -57,7 +58,7 @@ def load(data=None, name=None, same_topology=True, meshes_overlapped=True, clamp
         return
 
     if meshes_overlapped:
-        lib.pivot.match_transformations(OpenMaya.MMatrix(data['mesh_matrix']), data['geometry']['name'])
+        pivot.match_transformations(OpenMaya.MMatrix(data['mesh_matrix']), data['geometry']['name'])
     if not blend_node:
         blend_node = cmds.blendShape(data['geometry']['name'], n=data['name'])[0]
 

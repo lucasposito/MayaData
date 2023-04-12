@@ -1,5 +1,6 @@
 from maya.api import OpenMaya
 
+
 def get_children(plug=None, counter=0):
     """
     If the plug is an array or compound plug, it will return a list of all its children.

@@ -12,7 +12,8 @@ class Singleton(type):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
-        
+
+
 class UndoContext(object):
     """
     Undo Context wrapper for maya. Will undo any codeblock within it's with: block.

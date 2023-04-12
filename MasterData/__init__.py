@@ -1,2 +1,1 @@
-from . import data
-from . import lib
+from MasterData import data

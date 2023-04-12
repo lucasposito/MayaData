@@ -1,4 +1,5 @@
-from .base import BaseData
+from MasterData.data.base import BaseData
+
 from maya.api import OpenMaya
 
 
@@ -9,13 +10,13 @@ def get(name):
     data['name'] = name
     data['matrix'] = list(dag_obj.inclusiveMatrix())
 
-    vertex_data = []
+    vertex_data = list()
     points = mfn_mesh.getPoints()
     for point in points:
         vertex_data.append([point.x, point.y, point.z])
 
-    face_vertex_indices = []
-    face_counts = []
+    face_vertex_indices = list()
+    face_counts = list()
 
     for face_id in range(0, mfn_mesh.numPolygons):
         poly_connect = mfn_mesh.getPolygonVertices(face_id)

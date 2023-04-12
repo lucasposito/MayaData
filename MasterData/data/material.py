@@ -1,8 +1,7 @@
+from MasterData.data.base import BaseData
 
 from maya.api import OpenMaya
 from maya import cmds
-
-from . import BaseData
 
 
 def get(name):

@@ -31,8 +31,7 @@ def _dropped_install():
     mod_file.write('scripts: {}'.format(PurePath(local_path).as_posix()))
     mod_file.close()
 
-    # sys.path.append(local_path)
-    # import MasterData
+    sys.path.append(local_path)
 
 
 if is_maya:

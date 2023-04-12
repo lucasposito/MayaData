@@ -1,6 +1,6 @@
-from .base import BaseData
-from .tree import Tree
-from .. import core
+from MasterData.data.base import BaseData
+from MasterData.data.tree import Tree
+from MasterData.lib import hash
 
 from maya.api import OpenMaya
 
@@ -97,7 +97,7 @@ class SkeletonData(BaseData, Tree):
         super(SkeletonData, self).__init__(*args, **kwargs)
 
     def get_bone(self, full_path_name, attributes):
-        int_name = core.hash.string_to_int(full_path_name)
+        int_name = hash.string_to_int(full_path_name)
 
         self.custom_node = attributes
         self.add_node(*int_name)

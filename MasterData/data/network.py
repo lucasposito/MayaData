@@ -1,4 +1,5 @@
 from MasterData.data.base import BaseData
+from MasterData.lib import decorator
 
 import copy
 from maya.api import OpenMaya
@@ -19,7 +20,7 @@ class MayaNodes(dict):
                              'colorIfFalseR': float(), 'colorIfFalseG': float(), 'colorIfFalseB': float()}
 
 
-# @timer
+@decorator.timer()
 def get(name, attribute=None):
     network = Network()
     obj = OpenMaya.MSelectionList().add(name).getDependNode(0)
@@ -39,7 +40,7 @@ def _replace_prefix(name, prefix_list):
     return '_'.join(name)
 
 
-# @timer
+@decorator.timer()
 def load(data=None, prefix_list=None):
     if not data:
         data = NetworkData()

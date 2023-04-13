@@ -1,4 +1,4 @@
-import binascii  # python 2
+# import binascii  # python 2
 
 
 def string_to_int(full_name):

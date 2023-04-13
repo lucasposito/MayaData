@@ -1,10 +1,11 @@
 from MasterData.data.base import BaseData
-from MasterData.lib import get_node
+from MasterData.lib import get_node, decorator
 
 from maya.api import OpenMaya, OpenMayaAnim
 from maya import cmds
 
 
+@decorator.timer()
 def get(name):
     data = SkinData()
     data['geometry'] = name
@@ -54,6 +55,7 @@ def set_weights(skin_cluster, weights):
     skin_mfn.setWeights(mesh_path, vtx_component, influence_index, OpenMaya.MDoubleArray(weights))
 
 
+@decorator.timer()
 def load(data=None, name=None):
     if not data:
         data = SkinData()

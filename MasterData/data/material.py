@@ -1,9 +1,11 @@
 from MasterData.data.base import BaseData
+from MasterData.lib import decorator
 
 from maya.api import OpenMaya
 from maya import cmds
 
 
+@decorator.timer()
 def get(name):
     data = MaterialData()
     data['geometry'] = name
@@ -89,6 +91,12 @@ def create_materials(materials):
     return shader_groups
 
 
+def set_texture(path):
+    # TODO: texture connections
+    pass
+
+
+@decorator.timer()
 def load(data=None, name=None):
     if not data:
         data = MaterialData()

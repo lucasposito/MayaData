@@ -1,4 +1,5 @@
 from MasterData.data.base import BaseData
+from MasterData.lib import decorator
 from maya.api import OpenMaya
 
 
@@ -6,6 +7,7 @@ def get(name):
     pass
 
 
+@decorator.timer()
 def load(data=None):
     if not data:
         data = AttrData()

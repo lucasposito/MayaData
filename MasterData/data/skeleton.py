@@ -1,6 +1,6 @@
 from MasterData.data.base import BaseData
 from MasterData.data.tree import Tree
-from MasterData.lib import hash
+from MasterData.lib import hash, decorator
 
 from maya.api import OpenMaya
 
@@ -50,6 +50,7 @@ def _set_attributes(joint, attributes):
         mfn_node.findPlug(l, False).setInt(int(attributes[l]))
 
 
+@decorator.timer()
 def get(name):
     obj = OpenMaya.MSelectionList().add(name).getDependNode(0)
     dag_iter = OpenMaya.MItDag(OpenMaya.MItDag.kBreadthFirst, OpenMaya.MFn.kJoint)
@@ -82,6 +83,7 @@ def _build_hierarchy(joint_data, parent=None):
         _build_hierarchy(val, jnt_obj)
 
 
+@decorator.timer()
 def load(data=None):
     if not data:
         data = SkeletonData()

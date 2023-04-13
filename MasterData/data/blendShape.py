@@ -1,4 +1,4 @@
-from MasterData.lib import get_node, pivot
+from MasterData.lib import get_node, pivot, decorator
 from MasterData.data import geometry, uv
 from MasterData.data.base import BaseData
 
@@ -6,6 +6,7 @@ from maya.api import OpenMaya
 from maya import cmds
 
 
+@decorator.timer()
 def get(name):
     blend_node = get_node.blend_shape(name)
     if not blend_node:
@@ -33,6 +34,7 @@ def get(name):
     return data
 
 
+@decorator.timer()
 def load(data=None, name=None, same_topology=True, meshes_overlapped=True, clamp=0):
     if not data:
         data = BlendShapeData()

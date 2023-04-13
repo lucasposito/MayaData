@@ -1,8 +1,10 @@
 from MasterData.data.base import BaseData
+from MasterData.lib import decorator
 
 from maya.api import OpenMaya
 
 
+@decorator.timer()
 def get(name):
     dag_obj = OpenMaya.MSelectionList().add(name).getDagPath(0)
     mfn_mesh = OpenMaya.MFnMesh(dag_obj)
@@ -29,6 +31,7 @@ def get(name):
     return data
 
 
+@decorator.timer()
 def load(data=None):
     if not data:
         data = GeometryData()

@@ -5,6 +5,12 @@ from maya.api import OpenMaya, OpenMayaAnim
 from maya import cmds
 
 
+def get_skin_joints(mesh=None):
+    if not mesh:
+        mesh = cmds.ls(sl=True)[0]
+    return cmds.skinCluster(mesh, q=True, inf='findRelatedSkinCluster')
+
+
 @decorator.timer()
 def get(name):
     data = SkinData()

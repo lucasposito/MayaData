@@ -1,9 +1,11 @@
-from MasterData.data.base import BaseData
-from MasterData.lib import decorator
-
 from pathlib import Path
 from maya.api import OpenMaya
 from maya import cmds
+
+from mayaSerializer.base import BaseData
+
+
+ATTRIBUTES = ['DiffuseColor', 'NormalMap']
 
 
 def get_texture_path(material):
@@ -11,11 +13,9 @@ def get_texture_path(material):
     file_plug = color_plug.connectedTo(True, False)
     if file_plug:
         file = OpenMaya.MFnDependencyNode(file_plug[0].node())
-        path = Path(file.findPlug('fileTextureName', False).asString())
-        return path.name
+        return str(Path(file.findPlug('fileTextureName', False).asString()))
 
 
-@decorator.timer()
 def get(name):
     data = MaterialData()
     data['geometry'] = name
@@ -24,19 +24,22 @@ def get(name):
     mfn_mesh = OpenMaya.MFnMesh(mfn_mesh.extendToShape())
     m_objects, face_ids = mfn_mesh.getConnectedShaders(0)
 
-    data['shading_groups'] = [OpenMaya.MFnDependencyNode(obj).name() for obj in m_objects]
+    # data['shading_groups'] = [OpenMaya.MFnDependencyNode(obj).name() for obj in m_objects]
 
     for index, obj in enumerate(m_objects):
         data['face_id_map'][str(index)] = list()
         mfn_shader = OpenMaya.MFnDependencyNode(obj)
         plug = mfn_shader.findPlug("surfaceShader", False)
         plug_array = plug.connectedTo(True, False)
+
         for p in plug_array:
             mfn_material = OpenMaya.MFnDependencyNode(p.node())
-            data['materials'][mfn_material.name()] = None
+
+            data['materials'].append(mfn_material.name())
+            data['paths'][(mfn_material.name(), 'DiffuseColor')] = None
             texture_path = get_texture_path(mfn_material)
             if texture_path:
-                data['materials'][mfn_material.name()] = texture_path
+                data['paths'][(mfn_material.name(), 'DiffuseColor')] = texture_path
 
     for face_index, material_index in enumerate(face_ids):
         data['face_id_map'][str(material_index)].append(face_index)
@@ -130,24 +133,36 @@ def create_texture():
     return file_mfn
 
 
-def create_materials(materials, shading_groups, path):
+def load(data=None, name=None):
+    if not data:
+        data = MaterialData()
+        data.load()
+
+    if name:
+        data['geometry'] = name
 
     scene_mats = cmds.ls(materials=True)
-    index = 0
-    for mat_name, file_name in materials.items():
-        # checks if material is already created if not, creates it.
-        if mat_name not in scene_mats:
+    for index, mat_name in enumerate(data['materials']):
+
+        if mat_name in scene_mats:
+            mat_obj = OpenMaya.MSelectionList().add(mat_name).getDependNode(0)
+            mat_mfn = OpenMaya.MFnDependencyNode(mat_obj)
+
+            shader_plug = mat_mfn.findPlug('outColor', False).destinations()[0]
+            shader_name = OpenMaya.MFnDependencyNode(shader_plug.node()).name()
+        else:
             mat_name = cmds.shadingNode("lambert", name=mat_name, asShader=True)
-            cmds.sets(
-                name=mat_name + "SG",
-                empty=True,
-                renderable=True,
-                noSurfaceShader=True)
+            mat_obj = OpenMaya.MSelectionList().add(mat_name).getDependNode(0)
+            mat_mfn = OpenMaya.MFnDependencyNode(mat_obj)
 
-        mat_obj = OpenMaya.MSelectionList().add(mat_name).getDependNode(0)
-        mat_mfn = OpenMaya.MFnDependencyNode(mat_obj)
+            shader_name = cmds.sets(name=mat_name + "SG", empty=True, renderable=True, noSurfaceShader=True)
 
-        if file_name:
+        for attr in ATTRIBUTES:
+            if not (mat_name, attr) in data['paths']:
+                continue
+            # TODO: Not supporting other attributes such as normal map
+            file_name = data['paths'][(mat_name, attr)]
+
             input_color = mat_mfn.findPlug("color", False)
             if not input_color.source().isNull:
                 # The shading group is not deleted with the texture deletion
@@ -157,38 +172,21 @@ def create_materials(materials, shading_groups, path):
             output_color = file_mfn.findPlug("outColor", False)
 
             OpenMaya.MDGModifier().connect(output_color, input_color).doIt()
-            file_mfn.findPlug("fileTextureName", False).setString(str(Path(path) / file_name))
+            file_mfn.findPlug("fileTextureName", False).setString(file_name)
 
-        shader_obj = OpenMaya.MSelectionList().add(shading_groups[index]).getDependNode(0)
-
+        shader_obj = OpenMaya.MSelectionList().add(shader_name).getDependNode(0)
         out_color_plug = mat_mfn.findPlug('outColor', False)
         shader_plug = OpenMaya.MFnDependencyNode(shader_obj).findPlug('surfaceShader', False)
 
         OpenMaya.MDGModifier().connect(out_color_plug, shader_plug).doIt()
-        index += 1
 
-
-@decorator.timer()
-def load(data=None, name=None, path=None):
-    if not data:
-        data = MaterialData()
-        data.load()
-
-    if name:
-        data['geometry'] = name
-
-    if not path:
-        path = Path(__file__).parent / 'Textures'
-    create_materials(data['materials'], data['shading_groups'], path)
-
-    for index, material_name in enumerate(data['materials'].keys()):
-        set_face_materials(data['geometry'], data['face_id_map'][str(index)], data['shading_groups'][index])
+        set_face_materials(data['geometry'], data['face_id_map'][index], shader_name)
 
 
 class MaterialData(BaseData):
     def __init__(self):
         super(MaterialData, self).__init__()
         self['geometry'] = str()
-        self['materials'] = dict()
-        self['shading_groups'] = list()
+        self['materials'] = list()
+        self['paths'] = dict()
         self['face_id_map'] = dict()

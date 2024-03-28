@@ -18,7 +18,7 @@ def get(name):
 
     mfn_skin = get_node.skin_cluster(name)
     mfn_skin = OpenMayaAnim.MFnSkinCluster(mfn_skin)
-    data['name'] = mfn_skin.name()
+    # data['name'] = mfn_skin.name()
     data['max_influence'] = mfn_skin.findPlug('maxInfluences', False).asInt()
 
     for obj in mfn_skin.influenceObjects():
@@ -66,13 +66,13 @@ def load(data=None, name=None):
     if skin_cluster:
         cmds.skinCluster(OpenMaya.MFnDependencyNode(skin_cluster).name(), edit=True, unbind=True, unbindKeepHistory=False)
 
-    data['name'] = cmds.skinCluster(list(data['influences'].values()), data['geometry'],
+    cluster_name = cmds.skinCluster(list(data['influences'].values()), data['geometry'],
                                     bindMethod=1, mi=data['max_influence'], tsb=True)[0]
 
     with undo.UndoContext():
         _reset_skin_weights(data)
         for vId, weight in data['weights'].items():
-            weight_attr = '{}.weightList[{}]'.format(data['name'], vId)
+            weight_attr = '{}.weightList[{}]'.format(cluster_name, vId)
             for inf_id, inf_value in weight.items():
                 attr = '.weights[{}]'.format(inf_id)
                 full_attr = weight_attr + attr
@@ -83,7 +83,7 @@ def load(data=None, name=None):
 class SkinData(BaseData):
     def __init__(self):
         super(SkinData, self).__init__()
-        self['name'] = str()
+        # self['name'] = str()
         self['geometry'] = str()
         self['weights'] = dict()
         self['influences'] = dict()

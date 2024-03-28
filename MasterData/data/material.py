@@ -24,8 +24,6 @@ def get(name):
     mfn_mesh = OpenMaya.MFnMesh(mfn_mesh.extendToShape())
     m_objects, face_ids = mfn_mesh.getConnectedShaders(0)
 
-    # data['shading_groups'] = [OpenMaya.MFnDependencyNode(obj).name() for obj in m_objects]
-
     for index, obj in enumerate(m_objects):
         data['face_id_map'][str(index)] = list()
         mfn_shader = OpenMaya.MFnDependencyNode(obj)

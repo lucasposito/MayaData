@@ -52,7 +52,6 @@ def load(data=None, name=None):
 
     mfn_mesh.setUVs(u_array, v_array, uv_set_names)
     mfn_mesh.assignUVs(uv_counts, uv_ids, uv_set_names)
-    return data
 
       
 class UvData(BaseData):

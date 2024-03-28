@@ -47,8 +47,6 @@ def load(data=None):
     mod = OpenMaya.MDagModifier()
     mod.renameNode(mfn_mesh.parent(0), data['name']).doIt()
 
-    return data
-
     
 class GeometryData(BaseData):
     def __init__(self):

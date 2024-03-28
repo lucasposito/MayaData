@@ -1,6 +1,6 @@
-from MasterData.data.base import BaseData
-from MasterData.data.tree import Tree
-from MasterData.lib import hash, decorator
+from MayaData.data.base import BaseData
+from MayaData.data.tree import Tree
+from MayaData.lib import hash, decorator
 
 from maya.api import OpenMaya
 
@@ -8,6 +8,14 @@ import copy
 
 DEFAULT_DATA = {'name': str(), 'matrix': None, 'orient': list(), 'rotation': list(), 'radius': float(),
                 'rotateOrder': float(), 'side': float(), 'type': float()}
+
+
+def _traverse_to_root(joint):
+    obj = OpenMaya.MSelectionList().add(joint).getDependNode(0)
+    obj_mfn = OpenMaya.MFnTransform(obj)
+    while not obj_mfn.parent(0).hasFn(OpenMaya.MFn.kWorld):
+        obj_mfn = OpenMaya.MFnTransform(obj_mfn.parent(0))
+    return obj_mfn.object()
 
 
 def _get_attributes(joint):
@@ -52,13 +60,14 @@ def _set_attributes(joint, attributes):
 
 @decorator.timer()
 def get(name):
-    obj = OpenMaya.MSelectionList().add(name).getDependNode(0)
+    obj = _traverse_to_root(name)
     dag_iter = OpenMaya.MItDag(OpenMaya.MItDag.kBreadthFirst, OpenMaya.MFn.kJoint)
     dag_iter.reset(obj)
     data = SkeletonData()
 
     while not dag_iter.isDone():
         attrs = _get_attributes(dag_iter.currentItem())
+        data['joints'].append(dag_iter.partialPathName())
         data.get_bone(dag_iter.fullPathName(), attrs)
         dag_iter.next()
 
@@ -97,6 +106,7 @@ def load(data=None):
 class SkeletonData(BaseData, Tree):
     def __init__(self, *args, **kwargs):
         super(SkeletonData, self).__init__(*args, **kwargs)
+        self['joints'] = list()
 
     def get_bone(self, full_path_name, attributes):
         int_name = hash.string_to_int(full_path_name)

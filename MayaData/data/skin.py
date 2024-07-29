@@ -1,17 +1,55 @@
 from MayaData.data.base import BaseData
-from MayaData.lib import get_node, undo, decorator
+from MayaData.lib import undo, decorator
 
 from maya.api import OpenMaya, OpenMayaAnim
 from maya import cmds
 
 import numpy as np
+import pandas as pd
+
+
+def get_skin_cluster(mesh):
+    """
+    :param str mesh:
+    :return: Skin cluster attached to the mesh
+    :rtype: str/None
+    """
+    dag = OpenMaya.MSelectionList().add(mesh).getDagPath(0)
+    dag = dag.extendToShape()
+    obj = dag.node()
+
+    skin = None
+    dag_iter = OpenMaya.MItDependencyGraph(obj,
+                                           OpenMaya.MItDependencyGraph.kDownstream,
+                                           OpenMaya.MItDependencyGraph.kPlugLevel)
+    while not dag_iter.isDone():
+        current_item = dag_iter.currentNode()
+        if current_item.hasFn(OpenMaya.MFn.kSkinClusterFilter):
+            skin = current_item
+            break
+        dag_iter.next()
+    return skin
+
+
+def keep_influences(skin_data, influences_to_keep, base_joint):
+    skin_data = pd.DataFrame(skin_data)
+
+    remove = [i for i in skin_data.columns if i not in influences_to_keep + [base_joint]]
+
+    skin_data.drop(remove, axis=1, inplace=True)
+
+    for index, row in skin_data.iterrows():
+        difference = 1.0 - row.sum()
+        skin_data.at[index, base_joint] += difference
+
+    return skin_data.to_dict(orient='list')
 
 
 @decorator.timer()
 def get(name):
 
     data = SkinData()
-    mfn_skin = get_node.skin_cluster(name)
+    mfn_skin = get_skin_cluster(name)
     mfn_skin = OpenMayaAnim.MFnSkinCluster(mfn_skin)
 
     mesh_path = mfn_skin.getPathAtIndex(0)
@@ -45,7 +83,7 @@ def load(data=None, name=None):
         name = OpenMaya.MGlobal.getActiveSelectionList().getDependNode(0)
         name = OpenMaya.MFnTransform(name).fullPathName()
 
-    skin_cluster = get_node.skin_cluster(name)
+    skin_cluster = get_skin_cluster(name)
     if skin_cluster:
         cmds.skinCluster(OpenMaya.MFnDependencyNode(skin_cluster).name(), edit=True, unbind=True, unbindKeepHistory=False)
 

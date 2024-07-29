@@ -66,6 +66,9 @@ def get(name):
     data = SkeletonData()
 
     while not dag_iter.isDone():
+        if not dag_iter.currentItem().hasFn(OpenMaya.MFn.kJoint):
+            dag_iter.next()
+            continue
         attrs = _get_attributes(dag_iter.currentItem())
         data['joints'].append(dag_iter.partialPathName())
         data.get_bone(dag_iter.fullPathName(), attrs)

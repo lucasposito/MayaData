@@ -1,4 +1,4 @@
-from MayaData.lib import get_node, pivot, decorator
+from MayaData.lib import pivot, decorator
 from MayaData.data import geometry, uv
 from MayaData.data.base import BaseData
 
@@ -6,9 +6,33 @@ from maya.api import OpenMaya
 from maya import cmds
 
 
+def get_blend_shape(mesh):
+    """
+    Get blendshape connected to node.
+
+    :param str mesh:
+    :return: Blendshape found on mesh
+    :rtype: str/None
+    """
+    dag = OpenMaya.MSelectionList().add(mesh).getDagPath(0)
+    obj = dag.node()
+
+    bs = None
+    dag_iter = OpenMaya.MItDependencyGraph(obj,
+                                           OpenMaya.MItDependencyGraph.kDownstream,
+                                           OpenMaya.MItDependencyGraph.kPlugLevel)
+    while not dag_iter.isDone():
+        current_item = dag_iter.currentNode()
+        if current_item.hasFn(OpenMaya.MFn.kBlendShape):
+            bs = current_item
+            break
+        dag_iter.next()
+    return bs
+
+
 @decorator.timer()
 def get(name):
-    blend_node = get_node.blend_shape(name)
+    blend_node = get_blend_shape(name)
     if not blend_node:
         return
     mesh = OpenMaya.MSelectionList().add(name).getDagPath(0)
@@ -43,7 +67,7 @@ def load(data=None, name=None, same_topology=True, meshes_overlapped=True, clamp
     if name:
         data['geometry']['name'] = name
 
-    blend_node = get_node.blend_shape(data['geometry']['name'])
+    blend_node = get_blend_shape(data['geometry']['name'])
 
     if same_topology:
         if not blend_node:

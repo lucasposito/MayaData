@@ -1,5 +1,5 @@
 from MayaData.data.base import BaseData
-from MayaData.lib import undo, decorator
+from MayaData.lib import decorator
 
 from maya.api import OpenMaya, OpenMayaAnim
 from maya import cmds

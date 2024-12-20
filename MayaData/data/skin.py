@@ -8,6 +8,18 @@ import numpy as np
 import pandas as pd
 
 
+def copy(source, target):
+    source_skin = get(source)
+    target_skin = get_skin_cluster(target)
+
+    if target_skin:
+        cmds.skinCluster(OpenMaya.MFnDependencyNode(target_skin).name(), edit=True, unbind=True, unbindKeepHistory=False)
+
+    cmds.skinCluster(list(source_skin['influences'].values()), target,
+                                bindMethod=1, mi=source_skin['max_influence'], tsb=True)
+    cmds.copySkinWeights(source, target, nm=True, sa='closestPoint', ia=['closestJoint'])
+
+
 def get_skin_cluster(mesh):
     """
     :param str mesh:

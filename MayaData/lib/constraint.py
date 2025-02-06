@@ -97,3 +97,42 @@ def matrix(driver, driven, mirrored=False, offset=None):
         driver_matrix.setRotation(X_rotation * driver_matrix.rotation(asQuaternion=True))
 
     driven_mfn.setTransformation(driver_matrix)
+
+
+def blend_matrix(base, target, switch_attr):
+    base = OpenMaya.MSelectionList().add(base).getDependNode(0)
+    base_plug = OpenMaya.MFnDagNode(base).findPlug('worldMatrix', False).elementByLogicalIndex(0)
+
+    end_plug = base_plug.destinations()[0]
+
+    target = OpenMaya.MSelectionList().add(target).getDependNode(0)
+    target_plug = OpenMaya.MFnDagNode(target).findPlug('worldMatrix', False).elementByLogicalIndex(0)
+
+    switch = switch_attr.split('.')
+    switch_node = OpenMaya.MSelectionList().add(switch[0]).getDependNode(0)
+    switch_plug = OpenMaya.MFnDagNode(switch_node).findPlug(switch[-1], False)
+
+    mod = OpenMaya.MDGModifier()
+    blend_node = mod.createNode('blendMatrix')
+    mod.doIt()
+
+    blend_mfn = OpenMaya.MFnDependencyNode(blend_node)
+    mod = OpenMaya.MDGModifier()
+
+    input_plug = blend_mfn.findPlug('inputMatrix', False)
+    output_plug = blend_mfn.findPlug('outputMatrix', False)
+
+    mod.disconnect(base_plug, end_plug)
+    mod.connect(output_plug, end_plug)
+    mod.connect(base_plug, input_plug)
+
+    dest_plug = blend_mfn.findPlug('target', False).elementByLogicalIndex(0)
+
+    for i in range(dest_plug.numChildren()):
+        child_plug = dest_plug.child(i)
+        name = child_plug.partialName(useLongNames=1).split('.')[-1]
+        if name == 'weight':
+            mod.connect(switch_plug, child_plug)
+        if name == 'targetMatrix':
+            mod.connect(target_plug, child_plug)
+    mod.doIt()

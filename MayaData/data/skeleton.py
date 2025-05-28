@@ -18,10 +18,14 @@ def _traverse_to_root(joint):
     return obj_mfn.object()
 
 
-def _get_attributes(joint):
+def _get_attributes(joint, include_namespace):
     mfn_node = OpenMaya.MFnTransform(joint)
+    jnt_name = mfn_node.partialPathName()
+    if not include_namespace:
+        jnt_name = jnt_name.split(':')[-1]
+      
     data = copy.deepcopy(DEFAULT_DATA)
-    data['name'] = mfn_node.partialPathName()
+    data['name'] = jnt_name
     data['matrix'] = list(mfn_node.transformationMatrix())
 
     orient_plug = mfn_node.findPlug('jointOrient', False)
@@ -59,7 +63,7 @@ def _set_attributes(joint, attributes):
 
 
 @decorator.timer()
-def get(name, from_root=True):
+def get(name, from_root=True, include_namespace=True):
     obj = OpenMaya.MSelectionList().add(name).getDependNode(0)
     if from_root:
         obj = _traverse_to_root(name)
@@ -72,8 +76,11 @@ def get(name, from_root=True):
         if not dag_iter.currentItem().hasFn(OpenMaya.MFn.kJoint):
             dag_iter.next()
             continue
-        attrs = _get_attributes(dag_iter.currentItem())
-        data['joints'].append(dag_iter.partialPathName())
+        attrs = _get_attributes(dag_iter.currentItem(), include_namespace)
+        jnt_name = dag_iter.partialPathName()
+        if not include_namespace:
+            jnt_name = jnt_name.split(':')[-1]
+        data['joints'].append(jnt_name)
         data.get_bone(dag_iter.fullPathName(), attrs)
         dag_iter.next()
 

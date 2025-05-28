@@ -59,8 +59,11 @@ def _set_attributes(joint, attributes):
 
 
 @decorator.timer()
-def get(name):
-    obj = _traverse_to_root(name)
+def get(name, from_root=True):
+    obj = OpenMaya.MSelectionList().add(name).getDependNode(0)
+    if from_root:
+        obj = _traverse_to_root(name)
+
     dag_iter = OpenMaya.MItDag(OpenMaya.MItDag.kBreadthFirst, OpenMaya.MFn.kJoint)
     dag_iter.reset(obj)
     data = SkeletonData()

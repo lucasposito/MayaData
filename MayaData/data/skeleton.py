@@ -23,7 +23,6 @@ def _get_attributes(joint, include_namespace):
     jnt_name = mfn_node.partialPathName()
     if not include_namespace:
         jnt_name = jnt_name.split(':')[-1]
-      
     data = copy.deepcopy(DEFAULT_DATA)
     data['name'] = jnt_name
     data['matrix'] = list(mfn_node.transformationMatrix())
@@ -72,16 +71,41 @@ def get(name, from_root=True, include_namespace=True):
     dag_iter.reset(obj)
     data = SkeletonData()
 
+    first_item = None
+
     while not dag_iter.isDone():
         if not dag_iter.currentItem().hasFn(OpenMaya.MFn.kJoint):
             dag_iter.next()
             continue
+
+        full_name = dag_iter.fullPathName()
+        name_parts = full_name.split('|')[1:]
         attrs = _get_attributes(dag_iter.currentItem(), include_namespace)
+
+        if first_item is None:
+            first_item = name_parts
+            if not from_root:
+                # Then we need to get world transformations
+                m_matrix = dag_iter.getPath().inclusiveMatrix()
+                attrs['matrix'] = list(m_matrix)
+
+                rotation = OpenMaya.MTransformationMatrix(m_matrix).rotation()
+                attrs['rotation'] = [OpenMaya.MAngle(angle).asRadians() for angle in rotation]
+                attrs['orient'] = [0, 0, 0]
+            
+
         jnt_name = dag_iter.partialPathName()
         if not include_namespace:
             jnt_name = jnt_name.split(':')[-1]
         data['joints'].append(jnt_name)
-        data.get_bone(dag_iter.fullPathName(), attrs)
+
+        if not from_root:
+            i = 0
+            while i < len(first_item) and i < len(name_parts) and name_parts[i] == first_item[i]:
+                i += 1
+            full_name = '|'.join(name_parts[i - 1:] if i > 0 else name_parts)
+
+        data.get_bone(full_name, attrs)
         dag_iter.next()
 
     return data
@@ -123,6 +147,6 @@ class SkeletonData(BaseData, Tree):
 
     def get_bone(self, full_path_name, attributes):
         int_name = hash.string_to_int(full_path_name)
-
+        print(full_path_name)
         self.custom_node = attributes
         self.add_node(*int_name)

@@ -1,21 +1,9 @@
-from PySide2 import QtWidgets
-from shiboken2 import wrapInstance
-
-from maya import OpenMayaUI
-
+from MayaData.lib.pyside import QtWidgets, maya_window
 import json
-import sys
 
 
-maya_window = OpenMayaUI.MQtUtil.mainWindow()
-if sys.version_info.major >= 3:
-    maya_window = wrapInstance(int(maya_window), QtWidgets.QWidget)
-else:
-    maya_window = wrapInstance(long(maya_window), QtWidgets.QWidget)
-
-    
 file_filter = 'Json (*.json)'
-dialog = QtWidgets.QDialog(maya_window)
+dialog = QtWidgets.QDialog(maya_window())
 
 
 class BaseData(dict):

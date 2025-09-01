@@ -12,22 +12,20 @@ def get(name):
     data['name'] = name
     data['matrix'] = list(dag_obj.inclusiveMatrix())
 
-    vertex_data = list()
+    data['vertices'] = list()
     points = mfn_mesh.getPoints()
     for point in points:
-        vertex_data.append([point.x, point.y, point.z])
+        data['vertices'].append([point.x, point.y, point.z])
 
-    face_vertex_indices = list()
-    face_counts = list()
+    data['indices'] = list()
+    data['faces'] = list()
 
     for face_id in range(0, mfn_mesh.numPolygons):
         poly_connect = mfn_mesh.getPolygonVertices(face_id)
-        face_vertex_indices.extend([i for i in poly_connect])
-        face_counts.append(len(poly_connect))
+        data['faces'].append(len(poly_connect))
 
-    data['vertices'] = vertex_data
-    data['indices'] = face_vertex_indices
-    data['masks'] = face_counts
+        data['indices'].extend([i for i in poly_connect])
+
     return data
 
 
@@ -38,7 +36,7 @@ def load(data=None):
         data.load()
     face_points = [OpenMaya.MPoint(vertex) for vertex in data['vertices']]
     mfn_mesh = OpenMaya.MFnMesh()
-    mfn_mesh.create(face_points, data['masks'], data['indices'])
+    mfn_mesh.create(face_points, data['faces'], data['indices'])
 
     matrix = OpenMaya.MMatrix(data['matrix'])
     matrix = OpenMaya.MTransformationMatrix(matrix)
@@ -54,5 +52,5 @@ class GeometryData(BaseData):
         self['name'] = str()
         self['vertices'] = list()
         self['indices'] = list()
-        self['masks'] = list()
+        self['faces'] = list()
         self['matrix'] = list()

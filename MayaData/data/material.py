@@ -33,12 +33,12 @@ def get(name):
 
         for p in plug_array:
             mfn_material = OpenMaya.MFnDependencyNode(p.node())
+            mat_name = mfn_material.name()
 
-            data['materials'].append(mfn_material.name())
-            data['paths'][(mfn_material.name(), 'DiffuseColor')] = None
+            data['materials'].append(mat_name)
             texture_path = get_texture_path(mfn_material)
             if texture_path:
-                data['paths'][(mfn_material.name(), 'DiffuseColor')] = texture_path
+                data['paths'].setdefault(mat_name, {})['DiffuseColor'] = texture_path
 
     for face_index, material_index in enumerate(face_ids):
         data['face_id_map'][str(material_index)].append(face_index)
@@ -132,6 +132,36 @@ def create_texture():
     return file_mfn
 
 
+def _connect_normal_map(file_mfn, mat_mfn):
+    """Wires a normal-map file node into mat_mfn's normalCamera through a bump2d node
+    (bumpInterp=1, tangent space) - a normal map has to go through bump2d to be
+    interpreted correctly; connecting its outColor/outAlpha straight into color or
+    normalCamera (the same way DiffuseColor connects) is what was producing the
+    "normal map shows up as albedo" bug."""
+    file_name_str = file_mfn.name()
+    if cmds.attributeQuery('colorSpace', node=file_name_str, exists=True):
+        cmds.setAttr(file_name_str + '.colorSpace', 'Raw', type='string')
+    cmds.setAttr(file_name_str + '.alphaIsLuminance', 1)
+
+    normal_plug = mat_mfn.findPlug('normalCamera', False)
+    if not normal_plug.source().isNull:
+        # Clean up a previously-loaded normal map (bump2d node + the file node feeding it)
+        # the same way delete_texture() cleans up an existing color connection.
+        bump_obj = normal_plug.source().node()
+        bump_mfn = OpenMaya.MFnDependencyNode(bump_obj)
+        bump_value_plug = bump_mfn.findPlug('bumpValue', False)
+        mod = OpenMaya.MDGModifier()
+        if not bump_value_plug.source().isNull:
+            mod.deleteNode(bump_value_plug.source().node())
+        mod.deleteNode(bump_obj)
+        mod.doIt()
+
+    bump_node = cmds.shadingNode('bump2d', asUtility=True)
+    cmds.setAttr(bump_node + '.bumpInterp', 1)
+    cmds.connectAttr(file_name_str + '.outAlpha', bump_node + '.bumpValue', force=True)
+    cmds.connectAttr(bump_node + '.outNormal', mat_mfn.name() + '.normalCamera', force=True)
+
+
 def load(data=None, name=None):
     if not data:
         data = MaterialData()
@@ -156,22 +186,26 @@ def load(data=None, name=None):
 
             shader_name = cmds.sets(name=mat_name + "SG", empty=True, renderable=True, noSurfaceShader=True)
 
+        material_paths = data['paths'].get(mat_name, {})
         for attr in ATTRIBUTES:
-            if not (mat_name, attr) in data['paths']:
+            if attr not in material_paths:
                 continue
-            # TODO: Not supporting other attributes such as normal map
-            file_name = data['paths'][(mat_name, attr)]
+            file_name = material_paths[attr]
+
+            file_mfn = create_texture()
+            file_mfn.findPlug("fileTextureName", False).setString(file_name)
+
+            if attr == 'NormalMap':
+                _connect_normal_map(file_mfn, mat_mfn)
+                continue
 
             input_color = mat_mfn.findPlug("color", False)
             if not input_color.source().isNull:
                 # The shading group is not deleted with the texture deletion
                 delete_texture(input_color)
 
-            file_mfn = create_texture()
             output_color = file_mfn.findPlug("outColor", False)
-
             OpenMaya.MDGModifier().connect(output_color, input_color).doIt()
-            file_mfn.findPlug("fileTextureName", False).setString(file_name)
 
         shader_obj = OpenMaya.MSelectionList().add(shader_name).getDependNode(0)
         out_color_plug = mat_mfn.findPlug('outColor', False)
@@ -179,7 +213,7 @@ def load(data=None, name=None):
 
         OpenMaya.MDGModifier().connect(out_color_plug, shader_plug).doIt()
 
-        set_face_materials(data['geometry'], data['face_id_map'][index], shader_name)
+        set_face_materials(data['geometry'], data['face_id_map'][str(index)], shader_name)
 
 
 class MaterialData(BaseData):

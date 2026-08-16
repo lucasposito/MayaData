@@ -1,1 +1,1 @@
-from .data import blendShape, drivenKey, geometry, material, network, skeleton, skin, uv, curves
+from .data import blendShape, drivenKey, geometry, material, network, skeleton, skin, uv, normal, curves

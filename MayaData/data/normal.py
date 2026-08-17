@@ -39,11 +39,18 @@ def load(data=None, name=None):
     mfn_mesh = OpenMaya.MSelectionList().add(data['geometry']).getDagPath(0)
     mfn_mesh = OpenMaya.MFnMesh(mfn_mesh)
 
+    all_normals = OpenMaya.MVectorArray()
+    all_faces = OpenMaya.MIntArray()
+    all_vertices = OpenMaya.MIntArray()
+
     for (vtx_id, normals), faces in zip(data['normals'].items(), data['faces']):
-        mfn_mesh.setFaceVertexNormals(OpenMaya.MVectorArray(normals), OpenMaya.MIntArray(faces),
-                                      OpenMaya.MIntArray([vtx_id] * len(faces)))
-        # for normal, face in zip(OpenMaya.MVectorArray(normals), faces):
-        #     mfn_mesh.setFaceVertexNormal(normal, face, vtx_id)
+        vtx_id = int(vtx_id)
+        for normal, face in zip(normals, faces):
+            all_normals.append(OpenMaya.MVector(normal))
+            all_faces.append(face)
+            all_vertices.append(vtx_id)
+
+    mfn_mesh.setFaceVertexNormals(all_normals, all_faces, all_vertices)
     cmds.polyNormal(data['geometry'], nm=2, unm=0, ch=0)
 
 

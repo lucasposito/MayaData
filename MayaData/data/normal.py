@@ -2,8 +2,10 @@ from maya.api import OpenMaya
 from maya import cmds
 
 from MayaData.data.base import BaseData
+from MayaData.lib import decorator
 
 
+@decorator.timer()
 def get(name):
     data = NormalData()
     data['geometry'] = name
@@ -21,13 +23,14 @@ def get(name):
             data['normals'][vertex_id] = list()
 
         [data['normals'][vertex_id].append(tuple(normal)) for normal in normals]
-        data['faces'].append(list(vertex_iter.getConnectedFaces()))
+        data['faces'][vertex_id] = list(vertex_iter.getConnectedFaces())
 
         vertex_iter.next()
 
     return data
 
 
+@decorator.timer()
 def load(data=None, name=None):
     if not data:
         data = NormalData()
@@ -43,12 +46,17 @@ def load(data=None, name=None):
     all_faces = OpenMaya.MIntArray()
     all_vertices = OpenMaya.MIntArray()
 
-    for (vtx_id, normals), faces in zip(data['normals'].items(), data['faces']):
-        vtx_id = int(vtx_id)
+    faces_by_vertex = data['faces']
+    if isinstance(faces_by_vertex, list):
+        faces_by_vertex = dict(zip(data['normals'].keys(), faces_by_vertex))
+
+    for vtx_id, normals in data['normals'].items():
+        faces = faces_by_vertex.get(vtx_id, faces_by_vertex.get(str(vtx_id), []))
+        vtx_id_int = int(vtx_id)
         for normal, face in zip(normals, faces):
             all_normals.append(OpenMaya.MVector(normal))
             all_faces.append(face)
-            all_vertices.append(vtx_id)
+            all_vertices.append(vtx_id_int)
 
     mfn_mesh.setFaceVertexNormals(all_normals, all_faces, all_vertices)
     cmds.polyNormal(data['geometry'], nm=2, unm=0, ch=0)
@@ -59,4 +67,4 @@ class NormalData(BaseData):
         super(NormalData, self).__init__()
         self['geometry'] = str()
         self['normals'] = dict()
-        self['faces'] = list()
+        self['faces'] = dict()
